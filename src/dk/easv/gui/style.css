@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css?family=Love+Ya+Like+A+Sister');
+
+.tictaccell{
+    -fx-font-size: 24px;
+    -fx-text-fill: white;
+    -jfx-button-type: RAISED;
+    -fx-background-color: rgb(77,102,204);
+    -fx-pref-width: 100%;
+    -fx-pref-height: 100%;
+    -fx-alignment: CENTER;
+}
+
+.winmsg{
+    -fx-font-size:440px;
+    -fx-opacity: 0.7;
+}
+
+.game-headline{
+    -fx-font-size: 65px;
+    -fx-text-fill: black;
+}
+
+.start-button{
+    -fx-font-size: 25px;
+}
+
+.start-players{
+    -fx-font-size: 160px;
+    -fx-alignment: center;
+}
+
+.selectors{
+    -fx-font-size: 25px;
+}
+
+.selectors.namesetter{
+    -fx-font-size: 15px;
+}
+
+.game-font{
+    -fx-font-family: 'Love Ya Like A Sister', cursive;
+}
+.winner-text{
+    -fx-background-color: rgba(73, 117, 215, 0.18);
+    -fx-font-size: 45px;
+    -fx-text-fill: lightgoldenrodyellow;
+    -fx-font-family: 'Love Ya Like A Sister', cursive;
+}
+.root{
+    -icons-color: white;
+    -fx-background-color: rgb(230, 239, 255);
+}
+
+.glyph-icon{
+    -icons-color: lightgoldenrodyellow;
+    -fx-fill: linear-gradient(-icons-color 0%, derive(burlywood, 30%) 85%);
+    -fx-effect:  dropshadow(three-pass-box, rgba(0,0,0,1.0), 10, 0, 0, 0);
+    -glyph-size: 48px;
+}
+
+.winner-label {
+    -fx-font-size: 140px;
+    -fx-alignment: center;
+    -fx-background-color: rgba(73, 117, 215, 0.18);
+    -icons-color: lightgoldenrodyellow;
+}
+
+.stat-items{
+    -fx-text-fill: lightgoldenrodyellow;
+}
+
+.empty{
+
+}
+
+.player1{
+    -fx-background-color: red;
+}
+.player0{
+    -fx-background-color: green;
+}
+.playerTIE{
+    -fx-background-color: rgb(77,102,204);
+}
+.highlight
+{
+    -fx-border-style: solid;
+    -fx-border-color: red;
+    -fx-border-width: 5px;
+    -fx-background-color: #8fbc8f;
+}
