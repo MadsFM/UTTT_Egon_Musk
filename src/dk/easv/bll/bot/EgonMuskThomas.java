@@ -5,10 +5,9 @@ import dk.easv.bll.game.GameManager;
 import dk.easv.bll.game.GameState;
 import dk.easv.bll.game.IGameState;
 import dk.easv.bll.move.IMove;
-
-import java.util.*;
-
-import static com.sun.org.apache.xml.internal.security.utils.XMLUtils.selectNode;
+import java.util.List;
+import java.util.Objects;
+import java.util.Random;
 
 public class EgonMuskThomas implements IBot {
     final int moveTimeMs = 1000;
@@ -31,85 +30,47 @@ public class EgonMuskThomas implements IBot {
         simulator.getCurrentState().getField().setMacroboard(state.getField().getMacroboard().clone());
         return simulator;
     }
-    // This is an added utility class to help with move evaluation
-    class MoveEvaluation {
-        IMove move;
-        int wins;
-        int simulations;
 
-        public MoveEvaluation(IMove move) {
-            this.move = move;
-            this.wins = 0;
-            this.simulations = 0;
-        }
-
-        // Simulated UCB1-like score for move selection
-        public double getScore(int totalSimulations) {
-            if (this.simulations == 0) return Double.MAX_VALUE; // Maximize exploration
-            return ((double) this.wins / this.simulations) +
-                    Math.sqrt(2 * Math.log(totalSimulations) / this.simulations);
-        }
-    }
-    class TreeNode {
-        IMove move;
-        IGameState gameState;
-        TreeNode parent;
-        List<TreeNode> children = new ArrayList<>();
-        int wins = 0;
-        int visits = 0;
-
-        public TreeNode(IGameState gameState, TreeNode parent, IMove move) {
-            this.gameState = gameState;
-            this.parent = parent;
-            this.move = move;
-        }
-
-        // Adds a child node to this node
-        public void addChild(TreeNode child) {
-            children.add(child);
-        }
-
-        // Selects a child node based on UCB1
-        public TreeNode selectChild() {
-            TreeNode selected = null;
-            double bestValue = Double.MIN_VALUE;
-            for (TreeNode child : children) {
-                double ucb1Value = child.wins / (double) child.visits +
-                        Math.sqrt(2 * Math.log(this.visits) / child.visits);
-                if (ucb1Value > bestValue) {
-                    selected = child;
-                    bestValue = ucb1Value;
-                }
-            }
-            return selected;
-        }
-    }
-
-
-    // Modification to the calculateWinningMove method
+    // Plays single games until it wins and returns the first move for that. If iterations reached with no clear win, just return random valid move
     private IMove calculateWinningMove(IGameState state, int maxTimeMs) {
         long endTime = System.currentTimeMillis() + maxTimeMs;
-        TreeNode root = new TreeNode(state.clone(), null, null); // Clone the current state as the root
+        Random rand = new Random();
+        List<IMove> availableMoves = state.getField().getAvailableMoves();
+
+        int[] wins = new int[availableMoves.size()];
+        int[] blocks = new int[availableMoves.size()];
+        int[] simulations = new int[availableMoves.size()];
+
+        // The player making the next move
+        int currentPlayer = state.getMoveNumber() % 2;
+        int opponentPlayer = (currentPlayer + 1) % 2;
 
         while (System.currentTimeMillis() < endTime) {
-            TreeNode selected = selectNode(root); // Selection phase
-            if (selected.gameState.getGameOver() == GameOverState.Active) {
-                expandNode(selected); // Expansion phase
+            for (int i = 0; i < availableMoves.size(); i++) {
+                GameSimulator simulator = createSimulator(state);
+
+                // Simulate the game for the current move
+                simulateGame(simulator, availableMoves.get(i), rand, currentPlayer);
+                // Check if the move leads to a win for the current player
+                if (simulator.getGameOver() == GameOverState.Win && simulator.getCurrentPlayer() == opponentPlayer) {
+                    wins[i]++;
+                }
+
+                // Now, simulate the game from the opponent's perspective for the same move
+                simulator = createSimulator(state); // Reset the simulator for a new simulation
+                simulateGame(simulator, availableMoves.get(i), rand, opponentPlayer);
+                // Check if the move leads to a win for the opponent, indicating a block is necessary
+                if (simulator.getGameOver() == GameOverState.Win && simulator.getCurrentPlayer() == currentPlayer) {
+                    blocks[i]++;
+                }
+
+                simulations[i]++;
             }
-            TreeNode nodeToSimulate = selected;
-            if (!selected.children.isEmpty()) {
-                nodeToSimulate = selected.selectChild(); // Choose a child to simulate
-            }
-            GameOverState result = simulateGame(nodeToSimulate.gameState); // Simulation phase
-            backpropagate(nodeToSimulate, result); // Backpropagation phase
         }
 
-        // Choose the best move at the end of MCTS
-        TreeNode bestChild = Collections.max(root.children, Comparator.comparing(c -> c.wins / (double) c.visits));
-        return bestChild.move;
+        // After simulating all moves, select the best move based on the simulation results
+        return selectBestMove(availableMoves, wins, blocks, simulations);
     }
-
-
 
 
     private IMove selectBestMove(List<IMove> availableMoves, int[] wins, int[] blocks, int[] simulations) {
@@ -132,19 +93,15 @@ public class EgonMuskThomas implements IBot {
         return bestMove;
     }
 
-    private boolean simulateGame(GameSimulator simulator, IMove move, Random rand, int currentPlayer) {
-        // Apply the move to the simulator and continue the game until a game over state is reached
+    private GameOverState simulateGame(GameSimulator simulator, IMove move, Random rand, int currentPlayer) {
         simulator.updateGame(move);
         while (simulator.getGameOver() == GameOverState.Active) {
-            // Simulate moves for both players until the game ends
             List<IMove> moves = simulator.getCurrentState().getField().getAvailableMoves();
             if (moves.isEmpty()) break;
             IMove randomMove = moves.get(rand.nextInt(moves.size()));
             simulator.updateGame(randomMove);
         }
-
-        // Check if the current player won the game
-        return simulator.getGameOver() == GameOverState.Win && simulator.getCurrentPlayer() == currentPlayer;
+        return simulator.getGameOver();
     }
 
 
@@ -210,16 +167,16 @@ public class EgonMuskThomas implements IBot {
         }
     }
 
-        class GameSimulator {
+    class GameSimulator {
         private final IGameState currentState;
         private int currentPlayer = 0; //player0 == 0 && player1 == 1
         private volatile GameOverState gameOver = GameOverState.Active;
 
-            private int getCurrentPlayer() {
-                return currentPlayer;
-            }
+        private int getCurrentPlayer() {
+            return currentPlayer;
+        }
 
-            public void setGameOver(GameOverState state) {
+        public void setGameOver(GameOverState state) {
             gameOver = state;
         }
 
