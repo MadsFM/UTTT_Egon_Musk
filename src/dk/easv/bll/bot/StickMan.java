@@ -12,7 +12,7 @@ import java.util.Random;
 public class StickMan implements IBot {
     private static final Random random = new Random();
     private static final String BOT_NAME = "StickMan";
-    private static final int MAX_ITERATIONS = 1000;
+    private static final int MAX_ITERATIONS = 2000;
     private static final double EXPLORATION_FACTOR = 1.41;
 
     private class TreeNode {
@@ -37,7 +37,6 @@ public class StickMan implements IBot {
         }
     }
 
-    @Override
     public IMove doMove(IGameState state) {
         TreeNode rootNode = new TreeNode(state, null, null);
         for (int i = 0; i < MAX_ITERATIONS; i++) {
@@ -45,7 +44,6 @@ public class StickMan implements IBot {
                     .orElseThrow(() -> new IllegalStateException("No promising node found"));
             if (!gameOver(promisingNode.state)) {
                 expandNode(promisingNode);
-                // Print information about the expanded node
                 System.out.println("Expanded node with move: " + promisingNode.move);
                 System.out.println("Number of children: " + promisingNode.children.size());
             }
@@ -53,16 +51,28 @@ public class StickMan implements IBot {
                     promisingNode.children.get(random.nextInt(promisingNode.children.size()));
             int simulationResult = simulateRandomPlayout(nodeToExplore.state);
             backPropagation(nodeToExplore, simulationResult);
-            // Add console output to show current iteration and progress
             System.out.println("Iteration " + (i + 1) + " completed.");
         }
-        // Add console output to indicate end of iterations
         System.out.println("All iterations completed.");
-        IMove bestMove = selectBestMove(rootNode);
-        // Add console output to display the selected best move
-        System.out.println("Best move selected: " + bestMove);
-        return bestMove;
+
+        // Check if the rootNode has children before deciding the next move
+        if (!rootNode.children.isEmpty()) {
+            // rootNode has children, so we select the best move among them
+            System.out.println("---------" + selectBestMove(rootNode));
+            return selectBestMove(rootNode);
+        } else {
+            // rootNode has no children, fallback to a random move from the available moves in the current state
+            List<IMove> availableMoves = state.getField().getAvailableMoves();
+            if (!availableMoves.isEmpty()) {
+                IMove randomMove = availableMoves.get(random.nextInt(availableMoves.size()));
+                System.out.println("Fallback to random move: " + randomMove);
+                return randomMove;
+            } else {
+                throw new IllegalStateException("No moves available to make a selection");
+            }
+        }
     }
+
 
 
     @Override
@@ -110,11 +120,32 @@ public class StickMan implements IBot {
     }
 
     private IMove selectBestMove(TreeNode rootNode) {
-        return rootNode.children.stream()
-                .max(Comparator.comparingDouble(c -> (double) c.wins / c.visits))
-                .map(c -> c.move)
-                .orElseThrow(() -> new IllegalStateException("No best move found"));
+        if (rootNode.children.isEmpty()) {
+            throw new IllegalStateException("No children nodes available to select a best move.");
+        }
+
+        TreeNode bestNode = null;
+        double bestValue = Double.MIN_VALUE;
+        for (TreeNode child : rootNode.children) {
+            double value = (double) child.wins / child.visits;
+            System.out.println("Child move: " + child.move + ", Wins: " + child.wins + ", Visits: " + child.visits + ", Value: " + value);
+            if (value > bestValue) {
+                bestValue = value;
+                bestNode = child;
+            }
+        }
+
+        if (bestNode != null) {
+            System.out.println("Best move selected based on win ratio: " + bestNode.move);
+            return bestNode.move;
+        } else {
+            System.out.println("Fallback to random move due to best node being null.");
+            List<IMove> availableMoves = rootNode.state.getField().getAvailableMoves();
+            return availableMoves.get(random.nextInt(availableMoves.size()));
+        }
     }
+
+
 
     // Placeholder methods remain conceptual and should be implemented based on game mechanics.
     private boolean gameOver(IGameState state) {
